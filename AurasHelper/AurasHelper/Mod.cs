@@ -4,7 +4,7 @@ using System;
 using System.Diagnostics;
 using System.Reflection;
 
-namespace IttyBittyLivingSpace {
+namespace AurasHelper {
 
     public static class Mod {
 

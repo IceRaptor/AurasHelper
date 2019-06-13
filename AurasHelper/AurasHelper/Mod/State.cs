@@ -1,5 +1,5 @@
 ﻿
-namespace IttyBittyLivingSpace {
+namespace AurasHelper {
 
     public static class State {
 

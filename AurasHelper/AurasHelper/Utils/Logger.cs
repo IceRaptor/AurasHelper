@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace IttyBittyLivingSpace {
+namespace AurasHelper {
 
     public class Logger {
 

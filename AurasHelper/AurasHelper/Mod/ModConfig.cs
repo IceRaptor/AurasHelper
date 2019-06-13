@@ -1,6 +1,6 @@
 ﻿
 
-namespace IttyBittyLivingSpace {
+namespace AurasHelper {
 
     public class ModConfig {
 

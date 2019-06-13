@@ -1,5 +1,5 @@
 ﻿
-namespace IttyBittyLivingSpace {
+namespace AurasHelper {
 
     public class Helper {
         
