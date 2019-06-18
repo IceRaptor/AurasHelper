@@ -58,7 +58,7 @@ namespace AurasHelper {
             AbstractActor Owner = ownerT.GetValue<AbstractActor>();
 
             // 1. When the same effectId is added, record every actor that contributes the same effect id. Only remove the effect if all actors have removed the effect
-            string sourcesStat = $"{effect.Description.Id}_SOURCES";
+            string sourcesStat = $"{effect.Description.Id}_AH_SOURCES";
             string sourceValue = CombatantUtils.Label(fromActor);
             Mod.Log.Debug($"  sourceValue: ({sourceValue})");
             if (!Owner.StatCollection.ContainsStatistic(sourcesStat)) {
@@ -88,8 +88,8 @@ namespace AurasHelper {
                     $"vs. movingActor: {CombatantUtils.Label(movingActor)}");
 
                 // Create a tracking stat, denoting effectId:fromActorGUID:strength
-                string valuesStat = $"{effect.Description.Id}_VALUES";
-                string effectValue = $"{effect.statisticData.modValue}";
+                string valuesStat = $"{effect.Description.Id}_AH_VALUES";
+                string effectValue = $"{effect.Description.Id}:{CombatantUtils.Label(fromActor)}:{effectCreatorId}:{effect.statisticData.modValue}";
                 Mod.Log.Debug($"  effectValue: ({effectValue})");
                 if (!Owner.StatCollection.ContainsStatistic(valuesStat)) {
                     Owner.StatCollection.AddStatistic<string>(valuesStat, "");
@@ -129,7 +129,7 @@ namespace AurasHelper {
             AbstractActor Owner = ownerT.GetValue<AbstractActor>();
 
             // 1. When the same effectId is added, record every actor that contributes the same effect id. Only remove the effect if all actors have removed the effect
-            string sourcesStat = $"{effect.Description.Id}_SOURCES";
+            string sourcesStat = $"{effect.Description.Id}_AH_SOURCES";
             string sourceValue = CombatantUtils.Label(fromActor);
             if (Owner.StatCollection.ContainsStatistic(sourcesStat)) {
                 string sourcesValues = Owner.StatCollection.GetStatistic(sourcesStat).Value<string>();
@@ -151,20 +151,66 @@ namespace AurasHelper {
             }
 
             // 2. When multiple effects add to the same statistic, record each value as an array
+            if (effect != null && effect.effectType == EffectType.StatisticEffect) {
+                string valuesStat = $"{effect.Description.Id}_AH_VALUES";
+                string effectValue = $"{effect.Description.Id}:{CombatantUtils.Label(fromActor)}:{effectCreatorId}:{effect.statisticData.modValue}";
+                if (Owner.StatCollection.ContainsStatistic(valuesStat)) {
+                    string statValues = Owner.StatCollection.GetStatistic(valuesStat).Value<string>();
+                    Mod.Log.Debug($"  effect sources: value: ({statValues})");
 
-            //if (effect != null && effect.effectType == EffectType.StatisticEffect) {
-            //    Mod.Log.Debug("Removing statistic effect");
+                    bool valueRemoved = false;
+                    HashSet<string> newValues = new HashSet<string>();
+                    foreach (string value in statValues.Split(',')) {
+                        if (value.Equals(effectValue)) {
+                            if (valueRemoved) {
+                                newValues.Add(value);
+                            } else {
+                                valueRemoved = true;
+                            }
+                        }
+                        if (!value.Equals(effectValue)) {
+                            newValues.Add(value);
+                        }
+                    }
 
-            //    Traverse ownerT = Traverse.Create(__instance).Property("Owner");
-            //    AbstractActor Owner = ownerT.GetValue<AbstractActor>();
+                    if (newValues.Count > 0) {
+                        string newValue = string.Join(",", new List<string>(newValues).ToArray());
+                        Mod.Log.Debug($"  changing statValues from: ({statValues}) to: ({newValue})");
+                        Owner.StatCollection.Set(valuesStat, newValue);
+                        allowMethod = false;
+                    } else {
+                        Mod.Log.Debug($"  No effects remaining, removing all values");
+                    }
+                }
 
-            //    // WARNING: Duplicate of AuraCache:GetEffectID. Likely to break in a patch!
-            //    string effectId = string.Format("{0}-{1}-{2}-{3}", new object[] { fromActor.GUID, effectCreatorId, effect.Description.Id, Owner.GUID });
-            //    List<Effect> list = existingEffects.FindAll((Effect x) => x.id == effectId);
-
-            //}
+            }
 
             return allowMethod;
+        }
+    }
+
+    [HarmonyPatch(typeof(AbstractActor), "OnMoveComplete")]
+    public static class AbstractActor_OnMoveComplete {
+
+        public static void Prefix(AbstractActor __instance) {
+
+            Mod.Log.Debug($" OnMoveComplete for Actor: {CombatantUtils.Label(__instance)}");
+            foreach (KeyValuePair<string, Statistic> kvp in __instance.StatCollection) {
+                if (kvp.Key.EndsWith("_AH_SOURCES") || kvp.Key.EndsWith("_AH_VALUES")) {
+                    Mod.Log.Debug($" -- stat: ({kvp.Key}) has value: ({kvp.Value.Value<string>()}");
+                }
+            }
+
+            foreach (AbstractActor unit in __instance.team.units) {
+                if (unit.GUID != __instance.GUID) {
+                    Mod.Log.Debug($" -- friendly actor: {CombatantUtils.Label(unit)}");
+                    foreach (KeyValuePair<string, Statistic> kvp in unit.StatCollection) {
+                        if (kvp.Key.EndsWith("_AH_SOURCES") || kvp.Key.EndsWith("_AH_VALUES")) {
+                            Mod.Log.Debug($" -- stat: ({kvp.Key}) has value: ({kvp.Value.Value<string>()}");
+                        }
+                    }
+                }
+            }
         }
     }
 
