@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using us.frostraptor.modUtils.logging;
 
 namespace AurasHelper {
 
@@ -11,7 +12,7 @@ namespace AurasHelper {
         public const string HarmonyPackage = "us.frostraptor.AurasHelper";
         public const string LogName = "auras_helper";
 
-        public static Logger Log;
+        public static IntraModLogger Log;
         public static string ModDir;
         public static ModConfig Config;
 
@@ -28,7 +29,7 @@ namespace AurasHelper {
                 Mod.Config = new ModConfig();
             }
 
-            Log = new Logger(modDirectory, LogName);
+            Log = new IntraModLogger(modDirectory, LogName, Mod.Config.Debug, Mod.Config.Trace);
 
             Assembly asm = Assembly.GetExecutingAssembly();
             FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
