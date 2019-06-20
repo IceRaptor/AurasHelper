@@ -27,6 +27,40 @@ If your mod has different values for the same effectID, __the order of applicati
 
 :warning: Because predicting the interactions are so difficult, you should probably avoid this approach and keep every definition of an effect.description.id applying the same values.
 
+### Aura Oddities
+
+Auras are effects whose targetingData includes a `"specialRules" : "Aura"` block, and an `"auraEffectType" and "effectTargetType"` defining the actors to which an instance of the effect should be applied. Instead of auras being unique constructs, they are just effects that can be applied to one or more actors. A good example of auras is the [EWE in UrbanWarfare](https://github.com/caardappel-hbs/bt-dlc-designdata/blob/master/UrbanWarfare/data/upgrades/sensorTech/Gear_Sensor_Prototype_EWE.json).
+
+By default, at the start of the following events the game engine searches for all actors with auraEffects and applies the effect to all valid targets:
+
+* TurnDirector.CheckGameBegin
+* TurnDirector.EndCurrentRound
+
+This initialization is what causes the ECM bubble to 'pop in' after the zoom-in effect at mission start. The aura effect hasn't been applied until that point, so the VFX doesn't play.
+
+In addition, when an actor goes through one of the following events the game engine applies their auraEffects to any valid target within range:
+
+* AbstractActor.OnActivationBegin - after the actor is selected, but before resolving any action or movement selected.
+* AbstractActor.OnActivationEnd - after all actions and movement have been completed.
+* AbstractActor.OnPositionUpdate - for each 'hex' the actor moves.
+* AbstractActor.CancelCreatedEffects - when the actor dies or is shutdown
+
+Each actor has an `AuraCache` object attached to it, that receives new auraEffects or messages that auraEffects have been removed. It goes through effect processing logic to determine what should happen, and applies the effect on each actor individually.
+
+#### Aura Example
+An example helps make this a bit more clear. Let's say we have a Raven, Griffin, and Crab. If the Griffin and Crab are within the aura effect range at the start of the game (TurnDirector.CheckGameBegin), then the Raven, Griffin, and Crab all receive the effect outcome before any action is taken.
+
+The Griffin activates first and goes through `OnActivationBegin`. Because it emits no auraEffects, nothing happens. It then plots a movement path. Each time it moves a 'hex', `OnPositionUpdate` is invoked. The Griffin has no auraEffects, so it skips that part of the check. But when I leaves the range of the Raven's auraEffect, a message is sent to the Griffin's AuraCache indicating that the effect should be removed. When the Griffin finishes its movement and actions, `OnActivationEnd` is invoked and again nothing happens because there are no auraEffects emitted from the Griffin.
+
+The Raven activates next and goes through `OnActivationBegin`. Because it emits an auraEffect (`ECMStealth_GhostEffect_Allies`), it checks for all allies within range (100m). If an ally is within range, the `ECMStealth_GhostEffect_Allies` effect is applied. This includes the Raven. Because the effect has a stackLimit = 1, any existing effect is refreshed and the new effect instance is dropped. In this case, the Raven and the Crab both receive a message about a new effect `ECMStealth_GhostEffect_Allies`, and both refresh their existing effect (from `TurnDirector.CheckGameBegin`).
+
+The Raven then moves, each hex of which invokes `OnPositionUpdate`. When the Crab is more than 100m away, the Crab's `AuraCache` receives a message that `ECMStealth_GhostEffect_Allies` should be removed. The Crab removes the effect and loses the benefit. On each hex of movement, the Raven refreshes its initial instance of `ECMStealth_GhostEffect_Allies`.
+
+Finally the Raven completes `OnActivationEnd`. It checks for all actors in range, of which there are none except the Raven. The Raven's `AuraCache` receives another message saying add `ECMStealth_GhostEffect_Allies`, and it refreshes the initial instance of `ECMStealth_GhostEffect_Allies` it's carried since `TurnDirector.CheckGameBegin` fired.
+
+The Raven will only lose its initial `ECMStealth_GhostEffect_Allies` instance if it were to shutdown, die, or the component that provides the effect (EWE) were to be destroyed.
+
+
 ## Design Notes
 
 If an Aura effect uses AuraEffectType other than NotSet, has to be the HBS style or the static doesn't appear to be applied
