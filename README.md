@@ -1,8 +1,8 @@
 # AurasHelper
 This mod for the [HBS BattleTech](http://battletechgame.com/) game provides some minor changes to aura behaviors. These changes allow mods to use auras more flexibly than the HBS logic would normally allow. The following changes are supported:
 
-* Effects are only removed with all effect sources have left range.
-* Multiple effects that modify a statistic will be tracked and available for query.
+* Effects are only removed with all effect sources have left range. (Adds `<STATNAME>_SOURCES` statistic)
+* Multiple effects that modify a statistic will be tracked and available for query. (Adds `<STATNAME>_VALUES` statistic)
 
 ## Background
 
@@ -71,6 +71,19 @@ When A leaves range of the Crab, the Crab receives a message to remove `Custom_A
 If anything activates before the Crab or Raven B, the Crab will not have the benefit of `Custom_Ally_Effect`. It only regains `Custom_Ally_Effect` once Raven B checks its aura targets, or the Crab activates and notices it is within B's range.
 
 This is reason for one of the fixes above. AurasHelper tracks all aura emitters and makes sure the effect is only removed from the Crab once it leaves the range of __all emitters__. This allows general auras to function like you would expect (just like ECM ones do).
+
+## Statistic Effects
+
+Some effects modify an actors _statistics_, which are key-value pairs that are stored on the actor. These statistics are read by many systems, and are how the effect system and game mechanics get tied together in most cases. Custom statistics are possible to set as well, which provides mod developers with a convenient hook as well.
+
+Statistic values can be integer, floats, strings or bitmasks. Mathematical operations are supported on them, and the bitmasks support a few other operations we won't discuss. For instance you can define STAT_X as an integer, then add, subtract, or set the value from harmony injections.
+
+These operations occur when the effect is applied. When multiple effects are applied, each operation occurs in the order the effect was applied. Each unique effect applies their operation, and multiple instances of the same effect apply up to their __stackLimit__ (see above).
+
+For instance, let's say there are EFFECT_A, EFFECT_B, and EFFECT_C. A applies a -2 modifier, B a +3, and C a -1. A and B have a stackLimit of 1, while C has a stackLimit of 3. All effects modify STAT_X. If C has all three effects in place, the final value of STAT_X would be 3-1+1+1+1=5.  
+
+This works well, but doesn't allow logic like 'take the highest value' or 'highest +1 for each additional value'. This mod tracks all of the aura effects that modify a statistic effect and records the value that was applied (along with other information). This is exposed through the `<STATNAME>_VALUES` statistic and can be queried by mods that want to make more complex decisions upon all the values that are present.
+
 
 ## Design Notes
 
