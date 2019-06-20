@@ -16,7 +16,7 @@ Effects can be attached to components (passive effects), events in game (attacks
 
 For instance, `data/heatsinks/Gear_HeatSink_Generic_Thermal-Exchanger-II.json` applies the effect with ID `StatusEffect-Heat_GenReduction-T2`. If a 'mech has multiple Thermal Exchanger components, each component applies the effect to the parent 'mech. Because the effect description has `"stackLimit" : -1,` every component applies a unique instance of the same effectId. If you have three _Thermal Exchanger IIs_ on a 'mech, that actor will have three effects applied. Each effect will have the same ID and apply it's outcome independently.
 
-### Stack Limit Oddities
+## Stack Limit Oddities
 While `"stackLimit" : -1` works as you might expect, applying the effect every time, other stackLimits behave in a non-intuitive fashion. If you have a `"stackLimit" : 3` set for an effect, when a 4th copy of the effect is applied to the actor the actor retains only 3 effect instances. Instead effect instance 4 replacing effect instance 1, the first effect is refreshed. Instead of going from [1,2,3] to [2,3,4] you keep [1,2,3] but 1 is updated with 4's values.
 
 The likely reason for this behavior is that if they instead removed 1 and applied 4, all of the graphical and gameplay triggers would fire. This is unnecessary; if you're already playing an overheated VFX (because [1,2,3] applied it) then dropping 1 to add 4 means stopping the VFX and restarting it.
@@ -27,7 +27,7 @@ If your mod has different values for the same effectID, __the order of applicati
 
 :warning: Because predicting the interactions are so difficult, you should probably avoid this approach and keep every definition of an effect.description.id applying the same values.
 
-### Aura Oddities
+## Auras
 
 Auras are effects whose targetingData includes a `"specialRules" : "Aura"` block, and an `"auraEffectType" and "effectTargetType"` defining the actors to which an instance of the effect should be applied. Instead of auras being unique constructs, they are just effects that can be applied to one or more actors. A good example of auras is the [EWE in UrbanWarfare](https://github.com/caardappel-hbs/bt-dlc-designdata/blob/master/UrbanWarfare/data/upgrades/sensorTech/Gear_Sensor_Prototype_EWE.json).
 
@@ -47,7 +47,7 @@ In addition, when an actor goes through one of the following events the game eng
 
 Each actor has an `AuraCache` object attached to it, that receives new auraEffects or messages that auraEffects have been removed. It goes through effect processing logic to determine what should happen, and applies the effect on each actor individually.
 
-#### Aura Example
+### Aura Example
 An example helps make this a bit more clear. Let's say we have a Raven, Griffin, and Crab. If the Griffin and Crab are within the aura effect range at the start of the game (TurnDirector.CheckGameBegin), then the Raven, Griffin, and Crab all receive the effect outcome before any action is taken.
 
 The Griffin activates first and goes through `OnActivationBegin`. Because it emits no auraEffects, nothing happens. It then plots a movement path. Each time it moves a 'hex', `OnPositionUpdate` is invoked. The Griffin has no auraEffects, so it skips that part of the check. But when I leaves the range of the Raven's auraEffect, a message is sent to the Griffin's AuraCache indicating that the effect should be removed. When the Griffin finishes its movement and actions, `OnActivationEnd` is invoked and again nothing happens because there are no auraEffects emitted from the Griffin.
@@ -60,6 +60,17 @@ Finally the Raven completes `OnActivationEnd`. It checks for all actors in range
 
 The Raven will only lose its initial `ECMStealth_GhostEffect_Allies` instance if it were to shutdown, die, or the component that provides the effect (EWE) were to be destroyed.
 
+### Aura Oddities
+
+The logic above works fine when there's a single emitter of `ECMStealth_GhostEffect_Allies`. When there are multiple emitters though, things get a bit weird. Let's say we have Raven A and B with our Crab. If the Crab is within the bubble of both A and B, and Raven A moves away, the Crab keeps `ECMStealth_GhostEffect_Allies` and it works as you'd expect. Unfortunately, HBS code __makes a special case for ECM auras__ and this does NOT occur when general aura logic is applied.
+
+Instead of `ECMStealth_GhostEffect_Allies`, let's say Raven A and B have `Custom_Ally_Effect` instead. This is defined as a `StatisticEffect` which means it will modify a string or integer value on the target actor.
+
+When A leaves range of the Crab, the Crab receives a message to remove `Custom_Ally_Effect`. Because there's a stack limit of 1, the only effect to remove is the initial effect from `TurnDirector.CheckGameBegin`. The end result is that once A's call to `OnPositionUpdate` is complete, `Custom_Ally_Effect` will be gone from the Crab __even though it's within the area of Raven B's aura.__
+
+If anything activates before the Crab or Raven B, the Crab will not have the benefit of `Custom_Ally_Effect`. It only regains `Custom_Ally_Effect` once Raven B checks its aura targets, or the Crab activates and notices it is within B's range.
+
+This is reason for one of the fixes above. AurasHelper tracks all aura emitters and makes sure the effect is only removed from the Crab once it leaves the range of __all emitters__. This allows general auras to function like you would expect (just like ECM ones do).
 
 ## Design Notes
 
