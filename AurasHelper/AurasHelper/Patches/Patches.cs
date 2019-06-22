@@ -119,8 +119,9 @@ namespace AurasHelper {
     [HarmonyPatch(typeof(AuraCache), "RemoveEffectIfPresent")]
     public static class AuraCache_RemoveEffectIfPresent {
 
-        public static bool Prefix(AuraCache __instance, ref bool __result, AbstractActor fromActor, string effectCreatorId, 
+        public static bool Prefix(AuraCache __instance, AbstractActor fromActor, string effectCreatorId, 
             EffectData effect, List<Effect> existingEffects, EffectTriggerType triggerSource) {
+
             Mod.Log.Trace("AC:REIP entered");
 
             bool allowMethod = true;
@@ -132,21 +133,24 @@ namespace AurasHelper {
             string sourcesStat = $"{effect.Description.Id}_AH_SOURCES";
             string sourceValue = CombatantUtils.Label(fromActor);
             if (Owner.StatCollection.ContainsStatistic(sourcesStat)) {
-                string sourcesValues = Owner.StatCollection.GetStatistic(sourcesStat).Value<string>();
-                Mod.Log.Debug($"  effect sources: value: ({sourcesValues})");
+                Mod.Log.Debug($"  Removing effectSource: {sourceValue} from Owner: ({CombatantUtils.Label(Owner)}");
+                string statSources = Owner.StatCollection.GetStatistic(sourcesStat).Value<string>();
+                Mod.Log.Debug($"  -- statSources: ({statSources})");
 
                 HashSet<string> newValues = new HashSet<string>();
-                foreach (string value in sourcesValues.Split(',')) {
-                    if (!value.Equals(sourceValue)) { newValues.Add(value); }
+                foreach (string value in statSources.Split(',')) {
+                    if (value != null && value != "") { newValues.Add(value); }
                 }
+                if (newValues.Contains(sourceValue)) { newValues.Remove(sourceValue); }
 
                 if (newValues.Count > 0) {
                     string newValue = string.Join(",", new List<string>(newValues).ToArray());
-                    Mod.Log.Debug($"  changing effectSources from: ({sourcesValues}) to: ({newValue})");
+                    Mod.Log.Debug($"  changing effectSources on actor: ({CombatantUtils.Label(Owner)}) from: ({statSources}) to: ({newValue})");
                     Owner.StatCollection.Set(sourcesStat, newValue);
                     allowMethod = false;
                 } else {
-                    Mod.Log.Debug($"  No effects remaining");
+                    Mod.Log.Debug($"  No effectSources remaining on actor: ({CombatantUtils.Label(Owner)}), removing statistic: {sourcesStat}");
+                    Owner.StatCollection.RemoveStatistic(sourcesStat);
                 }
             }
 
@@ -155,23 +159,15 @@ namespace AurasHelper {
                 string valuesStat = $"{effect.Description.Id}_AH_VALUES";
                 string effectValue = $"{effect.Description.Id}:{CombatantUtils.Label(fromActor)}:{effectCreatorId}:{effect.statisticData.modValue}";
                 if (Owner.StatCollection.ContainsStatistic(valuesStat)) {
+                    Mod.Log.Debug($"  Removing effectValue: {effectValue} from Owner: ({CombatantUtils.Label(Owner)}");
                     string statValues = Owner.StatCollection.GetStatistic(valuesStat).Value<string>();
-                    Mod.Log.Debug($"  effect sources: value: ({statValues})");
+                    Mod.Log.Debug($"  -- statValues: ({statValues})");
 
-                    bool valueRemoved = false;
                     HashSet<string> newValues = new HashSet<string>();
                     foreach (string value in statValues.Split(',')) {
-                        if (value.Equals(effectValue)) {
-                            if (valueRemoved) {
-                                newValues.Add(value);
-                            } else {
-                                valueRemoved = true;
-                            }
-                        }
-                        if (!value.Equals(effectValue)) {
-                            newValues.Add(value);
-                        }
+                        if (value != null || value != "") { newValues.Add(value); }
                     }
+                    if (newValues.Contains(effectValue)) { newValues.Remove(effectValue); }
 
                     if (newValues.Count > 0) {
                         string newValue = string.Join(",", new List<string>(newValues).ToArray());
@@ -179,7 +175,8 @@ namespace AurasHelper {
                         Owner.StatCollection.Set(valuesStat, newValue);
                         allowMethod = false;
                     } else {
-                        Mod.Log.Debug($"  No effects remaining, removing all values");
+                        Mod.Log.Debug($"  No effects remaining on actor: ({CombatantUtils.Label(Owner)}), removing all values");
+                        Owner.StatCollection.RemoveStatistic(valuesStat);
                     }
                 }
 
@@ -197,7 +194,7 @@ namespace AurasHelper {
             Mod.Log.Debug($" OnMoveComplete for Actor: {CombatantUtils.Label(__instance)}");
             foreach (KeyValuePair<string, Statistic> kvp in __instance.StatCollection) {
                 if (kvp.Key.EndsWith("_AH_SOURCES") || kvp.Key.EndsWith("_AH_VALUES")) {
-                    Mod.Log.Debug($" -- stat: ({kvp.Key}) has value: ({kvp.Value.Value<string>()}");
+                    Mod.Log.Debug($" -- stat: ({kvp.Key}) has value: ({kvp.Value.Value<string>()})");
                 }
             }
 
@@ -206,7 +203,7 @@ namespace AurasHelper {
                     Mod.Log.Debug($" -- friendly actor: {CombatantUtils.Label(unit)}");
                     foreach (KeyValuePair<string, Statistic> kvp in unit.StatCollection) {
                         if (kvp.Key.EndsWith("_AH_SOURCES") || kvp.Key.EndsWith("_AH_VALUES")) {
-                            Mod.Log.Debug($" -- stat: ({kvp.Key}) has value: ({kvp.Value.Value<string>()}");
+                            Mod.Log.Debug($" -- stat: ({kvp.Key}) has value: ({kvp.Value.Value<string>()})");
                         }
                     }
                 }
