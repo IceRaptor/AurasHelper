@@ -1,14 +1,15 @@
 {
     "Name": "AurasHelper",
     "Enabled": true,
-    "Version": "1.1.0",
-    "Description": "",
+    "Version": "1.2.1",
+    "Description": "Utility mod that provides helper functions for auras",
     "Author": "IceRaptor",
     "Website": "https://github.com/IceRaptor/AurasHelper",
     "Contact": "",
     "DLL": "AurasHelper.dll",
-    "DependsOn" : [ ],
+    "DependsOn" : [ "IRBTModUtils" ],
     "Settings": {
         "Debug" : false,
+        "Trace" : false
     }
 }
