@@ -4,7 +4,7 @@ This mod for the [HBS BattleTech](http://battletechgame.com/) game provides some
 * Effects are only removed with all effect sources have left range. (Adds `<STATNAME>_SOURCES` statistic)
 * Multiple effects that modify a statistic will be tracked and available for query. (Adds `<STATNAME>_VALUES` statistic)
 
-
+**DEPRECATED** - You are strongly encouraged to use CustomActiationEquipment instead, as this mod has severe performance issues as it relies upon the base HBS aura code.
 
 This mod requires [https://github.com/iceraptor/IRBTModUtils/]. Grab the latest release of __IRBTModUtils__ and extract it in your Mods/ directory alongside of this mod.
 
